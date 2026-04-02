@@ -21,3 +21,5 @@ This file records the work completed on this project.
 - Added evaluation and explainability scripts, including checkpoint-loading utilities, CNN saliency maps, and transformer attention map generation.
 - Added a `requirements.txt` environment file for project setup.
 - Added a `.gitignore` to exclude local system files, datasets, checkpoints, outputs, and Python cache files.
+- Added an experiment runner script to train both models, compare validation/test performance and timing, and generate explainability outputs in one workflow.
+- Added a Colab notebook that installs dependencies, runs the full experiment pipeline, and displays the generated reports and explainability outputs.
