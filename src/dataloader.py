@@ -107,16 +107,19 @@ class CIFAR10DataModule:
             full_train_dataset = ManifestImageDataset(
                 entries=train_entries,
                 class_to_idx=class_to_idx,
+                dataset_root=Path(self.config.data_dir),
                 transform=train_transform,
             )
             val_source_dataset = ManifestImageDataset(
                 entries=train_entries,
                 class_to_idx=class_to_idx,
+                dataset_root=Path(self.config.data_dir),
                 transform=eval_transform,
             )
             test_dataset = ManifestImageDataset(
                 entries=test_entries,
                 class_to_idx=class_to_idx,
+                dataset_root=Path(self.config.data_dir),
                 transform=eval_transform,
             )
         else:
