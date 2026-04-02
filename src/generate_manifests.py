@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def list_split_entries(split_dir: Path) -> list[tuple[str, str, str]]:
+def list_split_entries(dataset_root: Path, split_dir: Path) -> list[tuple[str, str, str]]:
     if not split_dir.exists() or not split_dir.is_dir():
         raise FileNotFoundError(f"Missing split directory: {split_dir}")
 
@@ -43,7 +43,8 @@ def list_split_entries(split_dir: Path) -> list[tuple[str, str, str]]:
             if path.is_file() and path.suffix.lower() in VALID_EXTENSIONS
         )
         for image_path in image_paths:
-            entries.append((split_dir.name, class_dir.name, str(image_path.resolve())))
+            relative_path = image_path.resolve().relative_to(dataset_root.resolve())
+            entries.append((split_dir.name, class_dir.name, str(relative_path)))
     return entries
 
 
@@ -93,8 +94,8 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    full_train_entries = list_split_entries(data_dir / "train")
-    full_test_entries = list_split_entries(data_dir / "test")
+    full_train_entries = list_split_entries(data_dir, data_dir / "train")
+    full_test_entries = list_split_entries(data_dir, data_dir / "test")
 
     manifest_specs = [
         ("cifar10_full.txt", 1.0),

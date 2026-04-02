@@ -28,3 +28,5 @@ This file records the work completed on this project.
 - Added a manifest generation script for creating full, 50%, and 10% text-file subsets from the local CIFAR-10 folder dataset.
 - Updated the training pipeline and Colab notebook to optionally use manifest files for full, 50%, or 10% dataset runs.
 - Added reusable prompt files covering manifest generation, the custom dataloader, the training/evaluation script set, and the Colab notebook workflow.
+- Replaced the top-level README with a final project guide and added a final report describing the code structure, scripts, and dataloader workflow.
+- Updated manifest generation to store paths relative to the dataset root and adjusted manifest loading to resolve relative paths correctly.

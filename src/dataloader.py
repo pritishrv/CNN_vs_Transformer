@@ -207,11 +207,13 @@ class ManifestImageDataset(Dataset):
         self,
         entries: list[tuple[str, str, str]],
         class_to_idx: dict[str, int],
+        dataset_root: Path,
         transform: Optional[transforms.Compose] = None,
     ) -> None:
         self.entries = entries
         self.class_to_idx = class_to_idx
         self.classes = tuple(sorted(class_to_idx, key=class_to_idx.get))
+        self.dataset_root = dataset_root
         self.transform = transform
 
     def __len__(self) -> int:
@@ -219,7 +221,10 @@ class ManifestImageDataset(Dataset):
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         _, class_name, image_path = self.entries[index]
-        with Image.open(image_path) as image:
+        resolved_path = Path(image_path)
+        if not resolved_path.is_absolute():
+            resolved_path = self.dataset_root / resolved_path
+        with Image.open(resolved_path) as image:
             image = image.convert("RGB")
             if self.transform is not None:
                 image = self.transform(image)
