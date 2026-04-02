@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 from torch.optim import Adam
+from torch.optim.lr_scheduler import StepLR
 
 from src.config import TrainingConfig
 from src.dataloader import CIFAR10DataConfig, CIFAR10DataModule
@@ -33,6 +34,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--learning-rate", type=float, default=None, help="Optimizer learning rate."
+    )
+    parser.add_argument(
+        "--lr-decay-step",
+        type=int,
+        default=None,
+        help="Number of epochs between learning rate decay steps.",
+    )
+    parser.add_argument(
+        "--lr-decay-gamma",
+        type=float,
+        default=None,
+        help="Multiplicative factor applied during learning rate decay.",
     )
     parser.add_argument(
         "--data-dir", type=str, default=None, help="Directory for CIFAR-10 data."
@@ -79,6 +92,10 @@ def build_config(args: argparse.Namespace) -> TrainingConfig:
         config.batch_size = args.batch_size
     if args.learning_rate is not None:
         config.learning_rate = args.learning_rate
+    if args.lr_decay_step is not None:
+        config.lr_decay_step = args.lr_decay_step
+    if args.lr_decay_gamma is not None:
+        config.lr_decay_gamma = args.lr_decay_gamma
     if args.data_dir is not None:
         config.data_dir = args.data_dir
     if args.checkpoint_dir is not None:
@@ -145,6 +162,11 @@ def train_and_evaluate_model(
     model = build_model(model_name, config).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=config.learning_rate)
+    scheduler = StepLR(
+        optimizer,
+        step_size=config.lr_decay_step,
+        gamma=config.lr_decay_gamma,
+    )
 
     best_val_accuracy = -1.0
     best_val_loss = 0.0
@@ -174,6 +196,7 @@ def train_and_evaluate_model(
                 "train_accuracy": train_metrics["accuracy"],
                 "val_loss": val_metrics["loss"],
                 "val_accuracy": val_metrics["accuracy"],
+                "learning_rate": optimizer.param_groups[0]["lr"],
             }
         )
 
@@ -192,8 +215,10 @@ def train_and_evaluate_model(
             f"train_loss={train_metrics['loss']:.4f} | "
             f"train_acc={train_metrics['accuracy']:.4f} | "
             f"val_loss={val_metrics['loss']:.4f} | "
-            f"val_acc={val_metrics['accuracy']:.4f}"
+            f"val_acc={val_metrics['accuracy']:.4f} | "
+            f"lr={optimizer.param_groups[0]['lr']:.6f}"
         )
+        scheduler.step()
 
     total_train_time = now() - train_start_time
 
@@ -304,16 +329,18 @@ def build_markdown_report(results: list[dict[str, Any]]) -> str:
 def save_history_plots(results: list[dict[str, Any]], report_dir: Path) -> list[str]:
     output_paths: list[str] = []
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 3, figsize=(16, 4))
     for result in results:
         epochs = [entry["epoch"] for entry in result["history"]]
         train_loss = [entry["train_loss"] for entry in result["history"]]
         val_loss = [entry["val_loss"] for entry in result["history"]]
         val_accuracy = [entry["val_accuracy"] for entry in result["history"]]
+        learning_rates = [entry["learning_rate"] for entry in result["history"]]
 
         axes[0].plot(epochs, train_loss, label=f"{result['model']} train")
         axes[0].plot(epochs, val_loss, linestyle="--", label=f"{result['model']} val")
         axes[1].plot(epochs, val_accuracy, label=result["model"])
+        axes[2].plot(epochs, learning_rates, label=result["model"])
 
     axes[0].set_title("Training and Validation Loss")
     axes[0].set_xlabel("Epoch")
@@ -324,6 +351,11 @@ def save_history_plots(results: list[dict[str, Any]], report_dir: Path) -> list[
     axes[1].set_xlabel("Epoch")
     axes[1].set_ylabel("Accuracy")
     axes[1].legend()
+
+    axes[2].set_title("Learning Rate Decay")
+    axes[2].set_xlabel("Epoch")
+    axes[2].set_ylabel("Learning Rate")
+    axes[2].legend()
 
     fig.tight_layout()
     history_plot_path = report_dir / "training_validation_curves.png"

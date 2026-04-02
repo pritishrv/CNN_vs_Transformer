@@ -5,6 +5,7 @@ from typing import Dict, Tuple
 import torch
 from torch import nn
 from torch.optim import Adam
+from torch.optim.lr_scheduler import StepLR
 
 from src.config import TrainingConfig
 from src.dataloader import CIFAR10DataConfig, CIFAR10DataModule
@@ -25,6 +26,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--learning-rate", type=float, default=None, help="Optimizer learning rate."
+    )
+    parser.add_argument(
+        "--lr-decay-step",
+        type=int,
+        default=None,
+        help="Number of epochs between learning rate decay steps.",
+    )
+    parser.add_argument(
+        "--lr-decay-gamma",
+        type=float,
+        default=None,
+        help="Multiplicative factor applied during learning rate decay.",
     )
     parser.add_argument(
         "--data-dir", type=str, default=None, help="Directory for CIFAR-10 data."
@@ -52,6 +65,10 @@ def build_training_config(args: argparse.Namespace) -> TrainingConfig:
         config.batch_size = args.batch_size
     if args.learning_rate is not None:
         config.learning_rate = args.learning_rate
+    if args.lr_decay_step is not None:
+        config.lr_decay_step = args.lr_decay_step
+    if args.lr_decay_gamma is not None:
+        config.lr_decay_gamma = args.lr_decay_gamma
     if args.data_dir is not None:
         config.data_dir = args.data_dir
     if args.checkpoint_dir is not None:
@@ -161,6 +178,11 @@ def main() -> None:
 
     criterion = nn.CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=config.learning_rate)
+    scheduler = StepLR(
+        optimizer,
+        step_size=config.lr_decay_step,
+        gamma=config.lr_decay_gamma,
+    )
 
     best_val_accuracy = 0.0
     for epoch in range(1, config.epochs + 1):
@@ -189,14 +211,17 @@ def main() -> None:
         else:
             checkpoint_path = config.checkpoint_path / f"{args.model}.pth"
 
+        current_lr = optimizer.param_groups[0]["lr"]
         print(
             f"Epoch {epoch}/{config.epochs} | "
             f"train_loss={train_metrics['loss']:.4f} | "
             f"train_acc={train_metrics['accuracy']:.4f} | "
             f"val_loss={val_metrics['loss']:.4f} | "
             f"val_acc={val_metrics['accuracy']:.4f} | "
+            f"lr={current_lr:.6f} | "
             f"checkpoint={checkpoint_path}"
         )
+        scheduler.step()
 
     test_metrics = run_epoch(
         model=model,

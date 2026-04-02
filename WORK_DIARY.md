@@ -23,3 +23,4 @@ This file records the work completed on this project.
 - Added a `.gitignore` to exclude local system files, datasets, checkpoints, outputs, and Python cache files.
 - Added an experiment runner script to train both models, compare validation/test performance and timing, and generate explainability outputs in one workflow.
 - Added a Colab notebook that installs dependencies, runs the full experiment pipeline, and displays the generated reports and explainability outputs.
+- Added learning rate decay to the training pipeline and experiment runner.

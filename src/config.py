@@ -6,6 +6,8 @@ from pathlib import Path
 class TrainingConfig:
     batch_size: int = 64
     learning_rate: float = 1e-3
+    lr_decay_step: int = 5
+    lr_decay_gamma: float = 0.5
     epochs: int = 20
     num_classes: int = 10
     image_size: int = 32
