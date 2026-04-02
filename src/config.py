@@ -17,7 +17,7 @@ class TrainingConfig:
     transformer_heads: int = 4
     validation_split: float = 0.1
     num_workers: int = 2
-    data_dir: str = "./data"
+    data_dir: str = "./cifar10"
     checkpoint_dir: str = "./checkpoints"
     seed: int = 42
 

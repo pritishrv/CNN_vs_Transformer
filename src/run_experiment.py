@@ -16,6 +16,7 @@ from src.explain import (
     denormalize_image,
     generate_attention_map,
     generate_saliency_map,
+    load_class_names,
     load_sample,
     save_visualisation,
 )
@@ -288,7 +289,7 @@ def generate_explanation(
         predicted_class, explanation_map = generate_attention_map(model, image)
         title = "Transformer Attention"
 
-    class_names = CIFAR10DataModule.classes
+    class_names = load_class_names(sample_config)
     output_path = Path(f"./outputs/{model_name}_sample_{sample_index}.png")
     save_visualisation(
         image=denormalize_image(image.detach().cpu()),

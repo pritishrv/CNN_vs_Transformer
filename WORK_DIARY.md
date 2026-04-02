@@ -24,3 +24,4 @@ This file records the work completed on this project.
 - Added an experiment runner script to train both models, compare validation/test performance and timing, and generate explainability outputs in one workflow.
 - Added a Colab notebook that installs dependencies, runs the full experiment pipeline, and displays the generated reports and explainability outputs.
 - Added learning rate decay to the training pipeline and experiment runner.
+- Updated the dataloader to use a local folder-based CIFAR-10 dataset layout with lazy image loading from disk.

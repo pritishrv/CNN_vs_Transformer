@@ -55,6 +55,13 @@ def load_sample(config: CIFAR10DataConfig, sample_index: int) -> tuple[torch.Ten
     return data_module.test_dataset[sample_index]
 
 
+def load_class_names(config: CIFAR10DataConfig) -> tuple[str, ...]:
+    data_module = CIFAR10DataModule(config)
+    data_module.prepare_data()
+    data_module.setup()
+    return data_module.get_class_names()
+
+
 def generate_saliency_map(model: CIFAR10CNN, image: torch.Tensor) -> tuple[int, torch.Tensor]:
     image = image.unsqueeze(0)
     image.requires_grad_(True)
@@ -133,7 +140,7 @@ def main() -> None:
         seed=config.seed,
     )
     image, label = load_sample(data_config, args.sample_index)
-    class_names = CIFAR10DataModule.classes
+    class_names = load_class_names(data_config)
     image = image.to(device)
 
     if args.model == "cnn":

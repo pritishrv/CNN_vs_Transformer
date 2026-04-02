@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Tuple
 
 import torch
@@ -8,7 +9,7 @@ from torchvision import datasets, transforms
 
 @dataclass
 class CIFAR10DataConfig:
-    data_dir: str = "./data"
+    data_dir: str = "./cifar10"
     batch_size: int = 64
     num_workers: int = 2
     validation_split: float = 0.1
@@ -19,26 +20,22 @@ class CIFAR10DataConfig:
 
 
 class CIFAR10DataModule:
-    """Builds CIFAR-10 datasets and dataloaders for training workflows."""
-
-    classes = (
-        "airplane",
-        "automobile",
-        "bird",
-        "cat",
-        "deer",
-        "dog",
-        "frog",
-        "horse",
-        "ship",
-        "truck",
-    )
+    """Builds dataloaders from a local train/test folder layout."""
 
     def __init__(self, config: Optional[CIFAR10DataConfig] = None) -> None:
         self.config = config or CIFAR10DataConfig()
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
+        self.classes: Tuple[str, ...] = ()
+
+    @property
+    def train_dir(self) -> Path:
+        return Path(self.config.data_dir) / "train"
+
+    @property
+    def test_dir(self) -> Path:
+        return Path(self.config.data_dir) / "test"
 
     def _build_transforms(self) -> Tuple[transforms.Compose, transforms.Compose]:
         transform_steps = []
@@ -71,37 +68,50 @@ class CIFAR10DataModule:
         return transforms.Compose(transform_steps), transforms.Compose(eval_steps)
 
     def prepare_data(self) -> None:
-        """Downloads CIFAR-10 if it is not already available locally."""
-        datasets.CIFAR10(root=self.config.data_dir, train=True, download=True)
-        datasets.CIFAR10(root=self.config.data_dir, train=False, download=True)
+        """Validates the expected local dataset structure."""
+        missing_paths = [
+            str(path)
+            for path in (self.train_dir, self.test_dir)
+            if not path.exists() or not path.is_dir()
+        ]
+        if missing_paths:
+            raise FileNotFoundError(
+                "Expected local dataset folders were not found: "
+                + ", ".join(missing_paths)
+            )
 
     def setup(self) -> None:
-        """Creates train, validation, and test dataset splits."""
+        """Creates train, validation, and test dataset splits from local folders."""
         train_transform, eval_transform = self._build_transforms()
 
-        full_train_dataset = datasets.CIFAR10(
-            root=self.config.data_dir,
-            train=True,
-            download=False,
+        full_train_dataset = datasets.ImageFolder(
+            root=str(self.train_dir),
             transform=train_transform,
         )
 
-        val_source_dataset = datasets.CIFAR10(
-            root=self.config.data_dir,
-            train=True,
-            download=False,
+        val_source_dataset = datasets.ImageFolder(
+            root=str(self.train_dir),
             transform=eval_transform,
         )
 
-        test_dataset = datasets.CIFAR10(
-            root=self.config.data_dir,
-            train=False,
-            download=False,
+        test_dataset = datasets.ImageFolder(
+            root=str(self.test_dir),
             transform=eval_transform,
         )
+
+        train_classes = tuple(full_train_dataset.classes)
+        test_classes = tuple(test_dataset.classes)
+        if train_classes != test_classes:
+            raise ValueError(
+                "Train and test class folders do not match. "
+                f"train={train_classes}, test={test_classes}"
+            )
+        self.classes = train_classes
 
         val_size = int(len(full_train_dataset) * self.config.validation_split)
         train_size = len(full_train_dataset) - val_size
+        if val_size == 0:
+            raise ValueError("validation_split is too small and produced an empty set.")
 
         generator = torch.Generator().manual_seed(self.config.seed)
         train_subset, val_subset_with_indices = random_split(
