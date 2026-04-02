@@ -6,6 +6,7 @@ import torch
 from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
+from tqdm import tqdm
 
 from src.config import TrainingConfig
 from src.dataloader import CIFAR10DataConfig, CIFAR10DataModule
@@ -120,6 +121,7 @@ def run_epoch(
     criterion: nn.Module,
     device: torch.device,
     optimizer: Adam | None = None,
+    progress_label: str = "epoch",
 ) -> Dict[str, float]:
     is_training = optimizer is not None
     model.train(is_training)
@@ -130,7 +132,13 @@ def run_epoch(
 
     context = torch.enable_grad() if is_training else torch.no_grad()
     with context:
-        for images, labels in dataloader:
+        progress_bar = tqdm(
+            dataloader,
+            desc=progress_label,
+            leave=False,
+            dynamic_ncols=True,
+        )
+        for images, labels in progress_bar:
             images = images.to(device)
             labels = labels.to(device)
 
@@ -148,6 +156,10 @@ def run_epoch(
             predictions = outputs.argmax(dim=1)
             total_correct += (predictions == labels).sum().item()
             total_examples += labels.size(0)
+            progress_bar.set_postfix(
+                loss=f"{total_loss / total_examples:.4f}",
+                acc=f"{total_correct / total_examples:.4f}",
+            )
 
     return {
         "loss": total_loss / total_examples,
@@ -201,12 +213,14 @@ def main() -> None:
             criterion=criterion,
             device=device,
             optimizer=optimizer,
+            progress_label=f"train {epoch}/{config.epochs}",
         )
         val_metrics = run_epoch(
             model=model,
             dataloader=val_loader,
             criterion=criterion,
             device=device,
+            progress_label=f"val {epoch}/{config.epochs}",
         )
 
         if val_metrics["accuracy"] > best_val_accuracy:
@@ -237,6 +251,7 @@ def main() -> None:
         dataloader=test_loader,
         criterion=criterion,
         device=device,
+        progress_label="test",
     )
     print(
         f"Test results | loss={test_metrics['loss']:.4f} | "

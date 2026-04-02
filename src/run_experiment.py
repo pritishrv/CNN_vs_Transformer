@@ -191,12 +191,14 @@ def train_and_evaluate_model(
             criterion=criterion,
             device=device,
             optimizer=optimizer,
+            progress_label=f"{model_name} train {epoch}/{config.epochs}",
         )
         val_metrics = run_epoch(
             model=model,
             dataloader=val_loader,
             criterion=criterion,
             device=device,
+            progress_label=f"{model_name} val {epoch}/{config.epochs}",
         )
 
         history.append(
