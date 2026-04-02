@@ -36,6 +36,13 @@ def parse_args() -> argparse.Namespace:
         help="Index of the test sample to visualise.",
     )
     parser.add_argument(
+        "--sample-indices",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Optional list of test sample indices to visualise.",
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default=None,
@@ -140,27 +147,34 @@ def main() -> None:
         normalize=True,
         seed=config.seed,
     )
-    image, label = load_sample(data_config, args.sample_index)
     class_names = load_class_names(data_config)
-    image = image.to(device)
+    sample_indices = args.sample_indices or [args.sample_index]
 
-    if args.model == "cnn":
-        predicted_class, explanation_map = generate_saliency_map(model, image)
-        title = "CNN Saliency"
-    else:
-        predicted_class, explanation_map = generate_attention_map(model, image)
-        title = "Transformer Attention"
+    for sample_index in sample_indices:
+        image, label = load_sample(data_config, sample_index)
+        image = image.to(device)
 
-    output_path = Path(args.output or f"./outputs/{args.model}_sample_{args.sample_index}.png")
-    save_visualisation(
-        image=denormalize_image(image.detach().cpu()),
-        explanation_map=explanation_map,
-        true_label=class_names[label],
-        predicted_label=class_names[predicted_class],
-        explanation_title=title,
-        output_path=output_path,
-    )
-    print(f"Saved explanation to {output_path}")
+        if args.model == "cnn":
+            predicted_class, explanation_map = generate_saliency_map(model, image)
+            title = "CNN Saliency"
+        else:
+            predicted_class, explanation_map = generate_attention_map(model, image)
+            title = "Transformer Attention"
+
+        if args.output and len(sample_indices) == 1:
+            output_path = Path(args.output)
+        else:
+            output_path = Path(f"./outputs/{args.model}_sample_{sample_index}.png")
+
+        save_visualisation(
+            image=denormalize_image(image.detach().cpu()),
+            explanation_map=explanation_map,
+            true_label=class_names[label],
+            predicted_label=class_names[predicted_class],
+            explanation_title=title,
+            output_path=output_path,
+        )
+        print(f"Saved explanation to {output_path}")
 
 
 if __name__ == "__main__":

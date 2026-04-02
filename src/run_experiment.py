@@ -76,6 +76,13 @@ def parse_args() -> argparse.Namespace:
         help="Test sample index to use for explainability outputs.",
     )
     parser.add_argument(
+        "--sample-indices",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Optional list of test sample indices to use for explainability outputs.",
+    )
+    parser.add_argument(
         "--report-dir",
         type=str,
         default="./reports",
@@ -313,6 +320,25 @@ def generate_explanation(
     return str(output_path)
 
 
+def generate_explanations(
+    model_name: str,
+    checkpoint_path: str,
+    config: TrainingConfig,
+    sample_indices: list[int],
+    device: torch.device,
+) -> list[str]:
+    return [
+        generate_explanation(
+            model_name=model_name,
+            checkpoint_path=checkpoint_path,
+            config=config,
+            sample_index=sample_index,
+            device=device,
+        )
+        for sample_index in sample_indices
+    ]
+
+
 def build_markdown_report(results: list[dict[str, Any]]) -> str:
     lines = [
         "# Experiment Comparison Report",
@@ -426,6 +452,7 @@ def main() -> None:
     test_loader = eval_data_module.test_dataloader()
 
     results: list[dict[str, Any]] = []
+    sample_indices = args.sample_indices or [args.sample_index]
     for model_name in args.models:
         result = train_and_evaluate_model(
             model_name=model_name,
@@ -435,11 +462,11 @@ def main() -> None:
             test_loader=test_loader,
             device=device,
         )
-        result["explainability_output"] = generate_explanation(
+        result["explainability_outputs"] = generate_explanations(
             model_name=model_name,
             checkpoint_path=result["checkpoint_path"],
             config=config,
-            sample_index=args.sample_index,
+            sample_indices=sample_indices,
             device=device,
         )
         results.append(result)
@@ -470,7 +497,7 @@ def main() -> None:
             f"test_acc={result['test']['accuracy']:.4f} | "
             f"train_time={result['training_time_seconds']:.2f}s | "
             f"inference_total={result['inference']['total_seconds']:.4f}s | "
-            f"explain={result['explainability_output']}"
+            f"explain={','.join(result['explainability_outputs'])}"
         )
 
 
