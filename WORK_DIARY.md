@@ -25,3 +25,6 @@ This file records the work completed on this project.
 - Added a Colab notebook that installs dependencies, runs the full experiment pipeline, and displays the generated reports and explainability outputs.
 - Added learning rate decay to the training pipeline and experiment runner.
 - Updated the dataloader to use a local folder-based CIFAR-10 dataset layout with lazy image loading from disk.
+- Added a manifest generation script for creating full, 50%, and 10% text-file subsets from the local CIFAR-10 folder dataset.
+- Updated the training pipeline and Colab notebook to optionally use manifest files for full, 50%, or 10% dataset runs.
+- Added reusable prompt files covering manifest generation, the custom dataloader, the training/evaluation script set, and the Colab notebook workflow.

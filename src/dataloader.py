@@ -3,13 +3,15 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import torch
-from torch.utils.data import DataLoader, Subset, random_split
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset, Subset, random_split
 from torchvision import datasets, transforms
 
 
 @dataclass
 class CIFAR10DataConfig:
     data_dir: str = "./cifar10"
+    manifest_path: Optional[str] = None
     batch_size: int = 64
     num_workers: int = 2
     validation_split: float = 0.1
@@ -36,6 +38,12 @@ class CIFAR10DataModule:
     @property
     def test_dir(self) -> Path:
         return Path(self.config.data_dir) / "test"
+
+    @property
+    def manifest_path(self) -> Optional[Path]:
+        if self.config.manifest_path is None:
+            return None
+        return Path(self.config.manifest_path)
 
     def _build_transforms(self) -> Tuple[transforms.Compose, transforms.Compose]:
         transform_steps = []
@@ -69,6 +77,11 @@ class CIFAR10DataModule:
 
     def prepare_data(self) -> None:
         """Validates the expected local dataset structure."""
+        if self.manifest_path is not None:
+            if not self.manifest_path.exists() or not self.manifest_path.is_file():
+                raise FileNotFoundError(f"Manifest file not found: {self.manifest_path}")
+            return
+
         missing_paths = [
             str(path)
             for path in (self.train_dir, self.test_dir)
@@ -84,20 +97,43 @@ class CIFAR10DataModule:
         """Creates train, validation, and test dataset splits from local folders."""
         train_transform, eval_transform = self._build_transforms()
 
-        full_train_dataset = datasets.ImageFolder(
-            root=str(self.train_dir),
-            transform=train_transform,
-        )
+        if self.manifest_path is not None:
+            manifest_entries = _read_manifest_entries(self.manifest_path)
+            train_entries = [entry for entry in manifest_entries if entry[0] == "train"]
+            test_entries = [entry for entry in manifest_entries if entry[0] == "test"]
+            classes = tuple(sorted({entry[1] for entry in manifest_entries}))
+            class_to_idx = {class_name: idx for idx, class_name in enumerate(classes)}
 
-        val_source_dataset = datasets.ImageFolder(
-            root=str(self.train_dir),
-            transform=eval_transform,
-        )
+            full_train_dataset = ManifestImageDataset(
+                entries=train_entries,
+                class_to_idx=class_to_idx,
+                transform=train_transform,
+            )
+            val_source_dataset = ManifestImageDataset(
+                entries=train_entries,
+                class_to_idx=class_to_idx,
+                transform=eval_transform,
+            )
+            test_dataset = ManifestImageDataset(
+                entries=test_entries,
+                class_to_idx=class_to_idx,
+                transform=eval_transform,
+            )
+        else:
+            full_train_dataset = datasets.ImageFolder(
+                root=str(self.train_dir),
+                transform=train_transform,
+            )
 
-        test_dataset = datasets.ImageFolder(
-            root=str(self.test_dir),
-            transform=eval_transform,
-        )
+            val_source_dataset = datasets.ImageFolder(
+                root=str(self.train_dir),
+                transform=eval_transform,
+            )
+
+            test_dataset = datasets.ImageFolder(
+                root=str(self.test_dir),
+                transform=eval_transform,
+            )
 
         train_classes = tuple(full_train_dataset.classes)
         test_classes = tuple(test_dataset.classes)
@@ -162,3 +198,43 @@ class CIFAR10DataModule:
 
     def get_class_names(self) -> Tuple[str, ...]:
         return self.classes
+
+
+class ManifestImageDataset(Dataset):
+    """Dataset backed by a manifest file containing split, class, and path columns."""
+
+    def __init__(
+        self,
+        entries: list[tuple[str, str, str]],
+        class_to_idx: dict[str, int],
+        transform: Optional[transforms.Compose] = None,
+    ) -> None:
+        self.entries = entries
+        self.class_to_idx = class_to_idx
+        self.classes = tuple(sorted(class_to_idx, key=class_to_idx.get))
+        self.transform = transform
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
+        _, class_name, image_path = self.entries[index]
+        with Image.open(image_path) as image:
+            image = image.convert("RGB")
+            if self.transform is not None:
+                image = self.transform(image)
+        return image, self.class_to_idx[class_name]
+
+
+def _read_manifest_entries(manifest_path: Path) -> list[tuple[str, str, str]]:
+    lines = manifest_path.read_text().splitlines()
+    if not lines:
+        raise ValueError(f"Manifest is empty: {manifest_path}")
+
+    entries: list[tuple[str, str, str]] = []
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        split, class_name, path = line.split("\t", maxsplit=2)
+        entries.append((split, class_name, path))
+    return entries

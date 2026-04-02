@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 
 @dataclass
@@ -18,6 +19,7 @@ class TrainingConfig:
     validation_split: float = 0.1
     num_workers: int = 2
     data_dir: str = "./cifar10"
+    manifest_path: Optional[str] = None
     checkpoint_dir: str = "./checkpoints"
     seed: int = 42
 

@@ -43,6 +43,12 @@ def parse_args() -> argparse.Namespace:
         "--data-dir", type=str, default=None, help="Directory for CIFAR-10 data."
     )
     parser.add_argument(
+        "--manifest-path",
+        type=str,
+        default=None,
+        help="Optional manifest txt file describing dataset paths to use.",
+    )
+    parser.add_argument(
         "--checkpoint-dir",
         type=str,
         default=None,
@@ -71,6 +77,8 @@ def build_training_config(args: argparse.Namespace) -> TrainingConfig:
         config.lr_decay_gamma = args.lr_decay_gamma
     if args.data_dir is not None:
         config.data_dir = args.data_dir
+    if args.manifest_path is not None:
+        config.manifest_path = args.manifest_path
     if args.checkpoint_dir is not None:
         config.checkpoint_dir = args.checkpoint_dir
     if args.num_workers is not None:
@@ -87,6 +95,7 @@ def set_seed(seed: int) -> None:
 def build_dataloaders(config: TrainingConfig) -> Tuple[torch.utils.data.DataLoader, ...]:
     data_config = CIFAR10DataConfig(
         data_dir=config.data_dir,
+        manifest_path=config.manifest_path,
         batch_size=config.batch_size,
         num_workers=config.num_workers,
         validation_split=config.validation_split,

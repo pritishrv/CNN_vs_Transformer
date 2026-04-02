@@ -67,6 +67,7 @@ def main() -> None:
 
     data_config = CIFAR10DataConfig(
         data_dir=config.data_dir,
+        manifest_path=config.manifest_path,
         batch_size=config.batch_size,
         num_workers=config.num_workers,
         validation_split=config.validation_split,
